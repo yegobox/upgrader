@@ -11,7 +11,7 @@ dependencies:
     sdk: flutter
 
   # From fluttercommunity.dev: Get current device information from within the Flutter application.
-  device_info_plus: ^4.0.0-dev
+  device_info_plus: ^9.0.0
 
   # From Dart Team: A composable, Future-based library for making HTTP requests.
   http: ^0.13.0
@@ -20,7 +20,7 @@ dependencies:
   os_detect: ^2.0.0
 
   # From Flutter Community: Provides an API for querying information about an application package.
-  package_info_plus: ^1.4.2-dev
+  package_info_plus: ">=1.0.0 <4.0.0"
 
   # From Flutter Team: Wraps NSUserDefaults (on iOS) and SharedPreferences (on Android).
   shared_preferences: ^2.0.3
