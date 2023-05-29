@@ -1,11 +1,11 @@
 ---
 name: Report an issue
 about: Report an issue
-title: ''
-labels: ''
-assignees: ''
-
+title: ""
+labels: ""
+assignees: ""
 ---
+
 <!--
 To better assist in analyzing issues, please include all of the upgrader log, which should look something like this:
 ```
@@ -32,7 +32,7 @@ flutter: upgrader: showDialog title: Update App?
 flutter: upgrader: showDialog message: A new version of Upgrader is available! Version 5.81 is now available-you have 1.0.0.
 flutter: upgrader: showDialog releaseNotes: Thanks for using Google Maps! This release brings bug fixes that improve our product to help you discover new places and navigate to them.
 ```
-Also, please include the upgrader version number from the pubspec.lock file, which should look something like this:
+Also, please include the upgrader version number from the  file, which should look something like this:
 ```
   upgrader:
     dependency: "direct main"
