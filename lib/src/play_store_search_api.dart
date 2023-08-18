@@ -7,43 +7,75 @@ import 'package:html/parser.dart' show parse;
 import 'package:http/http.dart' as http;
 import 'package:version/version.dart';
 
-// TODO: refactor the two store API classes to use more shared code.
-
 class PlayStoreSearchAPI {
+  PlayStoreSearchAPI({http.Client? client}) : client = client ?? http.Client();
+
   /// Play Store Search Api URL
   final String playStorePrefixURL = 'play.google.com';
 
   /// Provide an HTTP Client that can be replaced for mock testing.
-  http.Client? client = http.Client();
+  final http.Client? client;
 
-  bool debugEnabled = false;
+  /// Enable print statements for debugging.
+  bool debugLogging = false;
 
   /// Look up by id.
-  Future<Document?> lookupById(String id) async {
-    if (id.isEmpty) {
-      return null;
+  Future<Document?> lookupById(String id,
+      {String? country = 'US',
+      String? language = 'en',
+      bool useCacheBuster = true}) async {
+    assert(id.isNotEmpty);
+    if (id.isEmpty) return null;
+
+    final url = lookupURLById(id,
+        country: country, language: language, useCacheBuster: useCacheBuster)!;
+    if (debugLogging) {
+      print('upgrader: lookupById url: $url');
     }
 
-    final url = lookupURLById(id)!;
+    try {
+      final response = await client!.get(Uri.parse(url));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (debugLogging) {
+          print(
+              'upgrader: Can\'t find an app in the Play Store with the id: $id');
+        }
+        return null;
+      }
 
-    final response = await client!.get(Uri.parse(url));
+      // Uncomment for creating unit test input files.
+      // final file = io.File('file.txt');
+      // await file.writeAsBytes(response.bodyBytes);
 
-    if (response.statusCode != 200) {
-      print('upgrader: Can\'t find an app in the Play Store with the id: $id');
+      final decodedResults = _decodeResults(response.body);
+
+      return decodedResults;
+    } on Exception catch (e) {
+      if (debugLogging) {
+        print('upgrader: lookupById exception: $e');
+      }
       return null;
     }
-
-    // Uncomment for creating unit test input files.
-    // final file = io.File('file.txt');
-    // await file.writeAsBytes(response.bodyBytes);
-
-    final decodedResults = _decodeResults(response.body);
-
-    return decodedResults;
   }
 
-  String? lookupURLById(String id) {
-    final url = Uri.https(playStorePrefixURL, '/store/apps/details', {'id': id})
+  String? lookupURLById(String id,
+      {String? country = 'US',
+      String? language = 'en',
+      bool useCacheBuster = true}) {
+    assert(id.isNotEmpty);
+    if (id.isEmpty) return null;
+
+    Map<String, dynamic> parameters = {'id': id};
+    if (country != null && country.isNotEmpty) {
+      parameters['gl'] = country;
+    }
+    if (language != null && language.isNotEmpty) {
+      parameters['hl'] = language;
+    }
+    if (useCacheBuster) {
+      parameters['_cb'] = DateTime.now().microsecondsSinceEpoch.toString();
+    }
+    final url = Uri.https(playStorePrefixURL, '/store/apps/details', parameters)
         .toString();
 
     return url;
@@ -58,11 +90,11 @@ class PlayStoreSearchAPI {
   }
 }
 
-class PlayStoreResults {
+extension PlayStoreResults on PlayStoreSearchAPI {
   static RegExp releaseNotesSpan = RegExp(r'>(.*?)</span>');
 
   /// Return field description from Play Store results.
-  static String? description(Document response) {
+  String? description(Document response) {
     try {
       final sectionElements = response.getElementsByClassName('W4P4ne');
       final descriptionElement = sectionElements[0];
@@ -77,53 +109,72 @@ class PlayStoreResults {
   }
 
   /// Return field description from Redesigned Play Store results.
-  static String? redesignedDescription(Document response) {
+  String? redesignedDescription(Document response) {
     try {
       final sectionElements = response.getElementsByClassName('bARER');
       final descriptionElement = sectionElements.last;
       final description = descriptionElement.text;
       return description;
     } catch (e) {
-      print('upgrader: PlayStoreResults.redesignedDescription exception: $e');
+      if (debugLogging) {
+        print('upgrader: PlayStoreResults.redesignedDescription exception: $e');
+      }
     }
     return null;
   }
 
-  /// Return the minimum app version taken from the tag in the description field
-  /// from the store response. The format is: [:mav: 1.2.3].
-  /// Returns version, such as 1.2.3, or null.
-  static Version? minAppVersion(Document response, {String tagName = 'mav'}) {
+  /// Return the minimum app version taken from a tag in the description field from the store response.
+  /// The [tagRegExpSource] is used to represent the format of a tag using a regular expression.
+  /// The format in the description by default is like this: `[Minimum supported app version: 1.2.3]`, which
+  /// returns the version `1.2.3`. If there is no match, it returns null.
+  Version? minAppVersion(
+    Document response, {
+    String tagRegExpSource =
+        r'\[\Minimum supported app version\:[\s]*(?<version>[^\s]+)[\s]*\]',
+  }) {
     Version? version;
     try {
-      final description = PlayStoreResults.description(response);
-      if (description != null) {
-        const regExpSource = r'\[\:mav\:[\s]*(?<version>[^\s]+)[\s]*\]';
-        final regExp = RegExp(regExpSource, caseSensitive: false);
-        final match = regExp.firstMatch(description);
+      final desc = description(response);
+      if (desc != null) {
+        final regExp = RegExp(tagRegExpSource, caseSensitive: false);
+        final match = regExp.firstMatch(desc);
         final mav = match?.namedGroup('version');
-        // Verify version string using class Version
-        version = mav != null ? Version.parse(mav) : null;
+
+        if (mav != null) {
+          try {
+            // Verify version string using class Version
+            version = Version.parse(mav);
+          } on Exception catch (e) {
+            if (debugLogging) {
+              print(
+                  'upgrader: PlayStoreResults.minAppVersion: mav=$mav, tag=$tagRegExpSource, error=$e');
+            }
+          }
+        }
       }
     } on Exception catch (e) {
-      print('upgrader.PlayStoreResults.minAppVersion : $e');
+      if (debugLogging) {
+        print('upgrader.PlayStoreResults.minAppVersion : $e');
+      }
     }
     return version;
   }
 
   /// Returns field releaseNotes from Play Store results. When there are no
   /// release notes, the main app description is used.
-  static String? releaseNotes(Document response) {
+  String? releaseNotes(Document response) {
     try {
       final sectionElements = response.getElementsByClassName('W4P4ne');
       final releaseNotesElement = sectionElements.firstWhere(
           (elm) => elm.querySelector('.wSaTQd')!.text == 'What\'s New',
           orElse: () => sectionElements[0]);
 
-      Element? rawReleaseNotes = releaseNotesElement
+      final rawReleaseNotes = releaseNotesElement
           .querySelector('.PHBdkd')
           ?.querySelector('.DWPxHb');
-      String? innerHtml = rawReleaseNotes!.innerHtml.toString();
-      String? releaseNotes = multilineReleaseNotes(innerHtml, rawReleaseNotes);
+      final releaseNotes = rawReleaseNotes == null
+          ? null
+          : multilineReleaseNotes(rawReleaseNotes);
 
       return releaseNotes;
     } catch (e) {
@@ -133,41 +184,38 @@ class PlayStoreResults {
 
   /// Returns field releaseNotes from Redesigned Play Store results. When there are no
   /// release notes, the main app description is used.
-  static String? redesignedReleaseNotes(Document response) {
+  String? redesignedReleaseNotes(Document response) {
     try {
       final sectionElements =
           response.querySelectorAll('[itemprop="description"]');
 
-      Element? rawReleaseNotes = sectionElements.last;
-      String? innerHtml = rawReleaseNotes.innerHtml.toString();
-      String? releaseNotes = multilineReleaseNotes(innerHtml, rawReleaseNotes);
-
+      final rawReleaseNotes = sectionElements.last;
+      final releaseNotes = multilineReleaseNotes(rawReleaseNotes);
       return releaseNotes;
     } catch (e) {
-      print('upgrader: PlayStoreResults.redesignedReleaseNotes exception: $e');
+      if (debugLogging) {
+        print(
+            'upgrader: PlayStoreResults.redesignedReleaseNotes exception: $e');
+      }
     }
     return null;
   }
 
-  static String? multilineReleaseNotes(
-      String innerHtml, Element rawReleaseNotes) {
-    String? releaseNotes;
+  String? multilineReleaseNotes(Element rawReleaseNotes) {
+    final innerHtml = rawReleaseNotes.innerHtml;
+    String? releaseNotes = innerHtml;
 
     if (releaseNotesSpan.hasMatch(innerHtml)) {
-      releaseNotes =
-          releaseNotesSpan.firstMatch(innerHtml.toString())!.group(1);
-      // Detect default multiline replacement
-      releaseNotes = releaseNotes!.replaceAll('<br>', '\n');
-    } else {
-      /// Fallback to normal method
-      releaseNotes = rawReleaseNotes.text;
+      releaseNotes = releaseNotesSpan.firstMatch(innerHtml)!.group(1);
     }
+    // Detect default multiline replacement
+    releaseNotes = releaseNotes!.replaceAll('<br>', '\n');
 
     return releaseNotes;
   }
 
   /// Return field version from Play Store results.
-  static String? version(Document response) {
+  String? version(Document response) {
     String? version;
     try {
       final additionalInfoElements = response.getElementsByClassName('hAyfc');
@@ -185,7 +233,7 @@ class PlayStoreResults {
   }
 
   /// Return field version from Redesigned Play Store results.
-  static String? redesignedVersion(Document response) {
+  String? redesignedVersion(Document response) {
     String? version;
     try {
       const patternName = ",\"name\":\"";
@@ -227,7 +275,9 @@ class PlayStoreResults {
       // storeVersion might be: 'Varies with device', which is not a valid version.
       version = Version.parse(storeVersion).toString();
     } catch (e) {
-      print('upgrader: PlayStoreResults.redesignedVersion exception: $e');
+      if (debugLogging) {
+        print('upgrader: PlayStoreResults.redesignedVersion exception: $e');
+      }
     }
 
     return version;

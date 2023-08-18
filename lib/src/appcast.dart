@@ -1,18 +1,17 @@
 // ignore_for_file: constant_identifier_names
 
 /*
- * Copyright (c) 2018-2022 Larry Aasen. All rights reserved.
+ * Copyright (c) 2018-2023 Larry Aasen. All rights reserved.
  */
 
 import 'dart:convert' show utf8;
 
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:version/version.dart';
 import 'package:xml/xml.dart';
 
-import 'upgrade_io.dart';
+import 'upgrade_os.dart';
+import 'upgrader_device.dart';
 
 /// The [Appcast] class is used to download an Appcast, based on the Sparkle
 /// framework by Andy Matuschak.
@@ -20,21 +19,57 @@ import 'upgrade_io.dart';
 /// An Appcast is an RSS feed with one channel that has a collection of items
 /// that each describe one app version.
 class Appcast {
-  /// Provide an HTTP Client that can be replaced for mock testing.
-  http.Client? client;
+  /// Provide an HTTP Client that can be replaced during testing.
+  final http.Client client;
+
+  /// Provide [UpgraderOS] that can be replaced during testing.
+  final UpgraderOS upgraderOS;
+
+  /// Provide [UpgraderDevice] that ca be replaced during testing.
+  final UpgraderDevice upgraderDevice;
 
   Appcast({
-    this.client,
-  }) {
-    client ??= http.Client();
-  }
+    http.Client? client,
+    UpgraderOS? upgraderOS,
+    UpgraderDevice? upgraderDevice,
+  })  : client = client ?? http.Client(),
+        upgraderOS = upgraderOS ?? UpgraderOS(),
+        upgraderDevice = upgraderDevice ?? UpgraderDevice();
 
   /// The items in the Appcast.
   List<AppcastItem>? items;
 
-  late AndroidDeviceInfo _androidInfo;
-  late IosDeviceInfo _iosInfo;
   String? osVersionString;
+
+  /// Returns the latest critical item in the Appcast.
+  AppcastItem? bestCriticalItem() {
+    if (items == null) {
+      return null;
+    }
+
+    AppcastItem? bestItem;
+    items!.forEach((AppcastItem item) {
+      if (item.hostSupportsItem(
+              osVersion: osVersionString,
+              currentPlatform: upgraderOS.current) &&
+          item.isCriticalUpdate) {
+        if (bestItem == null) {
+          bestItem = item;
+        } else {
+          try {
+            final itemVersion = Version.parse(item.versionString!);
+            final bestItemVersion = Version.parse(bestItem!.versionString!);
+            if (itemVersion > bestItemVersion) {
+              bestItem = item;
+            }
+          } on Exception catch (e) {
+            print('upgrader: criticalUpdateItem invalid version: $e');
+          }
+        }
+      }
+    });
+    return bestItem;
+  }
 
   /// Returns the latest item in the Appcast based on OS, OS version, and app
   /// version.
@@ -45,11 +80,20 @@ class Appcast {
 
     AppcastItem? bestItem;
     items!.forEach((AppcastItem item) {
-      if (item.hostSupportsItem(osVersion: osVersionString)) {
-        if (bestItem == null ||
-            Version.parse(item.versionString!) >
-                Version.parse(bestItem!.versionString!)) {
+      if (item.hostSupportsItem(
+          osVersion: osVersionString, currentPlatform: upgraderOS.current)) {
+        if (bestItem == null) {
           bestItem = item;
+        } else {
+          try {
+            final itemVersion = Version.parse(item.versionString!);
+            final bestItemVersion = Version.parse(bestItem!.versionString!);
+            if (itemVersion > bestItemVersion) {
+              bestItem = item;
+            }
+          } on Exception catch (e) {
+            print('upgrader: bestItem invalid version: $e');
+          }
         }
       }
     });
@@ -60,9 +104,9 @@ class Appcast {
   Future<List<AppcastItem>?> parseAppcastItemsFromUri(String appCastURL) async {
     http.Response response;
     try {
-      response = await client!.get(Uri.parse(appCastURL));
+      response = await client.get(Uri.parse(appCastURL));
     } catch (e) {
-      print(e);
+      print('upgrader: parseAppcastItemsFromUri exception: $e');
       return null;
     }
     final contents = utf8.decode(response.bodyBytes);
@@ -71,7 +115,7 @@ class Appcast {
 
   /// Parse the Appcast from XML string.
   Future<List<AppcastItem>?> parseAppcastItems(String contents) async {
-    await _getDeviceInfo();
+    osVersionString = await upgraderDevice.getOsVersionString(upgraderOS);
     return parseItemsFromXMLString(contents);
   }
 
@@ -110,9 +154,9 @@ class Appcast {
           if (childNode is XmlElement) {
             final name = childNode.name.toString();
             if (name == AppcastConstants.ElementTitle) {
-              title = childNode.text;
+              title = childNode.innerText;
             } else if (name == AppcastConstants.ElementDescription) {
-              itemDescription = childNode.text;
+              itemDescription = childNode.innerText;
             } else if (name == AppcastConstants.ElementEnclosure) {
               childNode.attributes.forEach((XmlAttribute attribute) {
                 if (attribute.name.toString() ==
@@ -127,13 +171,13 @@ class Appcast {
                 }
               });
             } else if (name == AppcastConstants.ElementMaximumSystemVersion) {
-              maximumSystemVersion = childNode.text;
+              maximumSystemVersion = childNode.innerText;
             } else if (name == AppcastConstants.ElementMinimumSystemVersion) {
-              minimumSystemVersion = childNode.text;
+              minimumSystemVersion = childNode.innerText;
             } else if (name == AppcastConstants.ElementPubDate) {
-              dateString = childNode.text;
+              dateString = childNode.innerText;
             } else if (name == AppcastConstants.ElementReleaseNotesLink) {
-              releaseNotesLink = childNode.text;
+              releaseNotesLink = childNode.innerText;
             } else if (name == AppcastConstants.ElementTags) {
               childNode.children.forEach((XmlNode tagChildNode) {
                 if (tagChildNode is XmlElement) {
@@ -142,7 +186,7 @@ class Appcast {
                 }
               });
             } else if (name == AppcastConstants.AttributeVersion) {
-              itemVersion = childNode.text;
+              itemVersion = childNode.innerText;
             }
           }
         });
@@ -175,32 +219,10 @@ class Appcast {
 
       items = localItems;
     } catch (e) {
-      print(e);
+      print('upgrader: parseItemsFromXMLString exception: $e');
     }
 
     return items;
-  }
-
-  Future<bool> _getDeviceInfo() async {
-    final deviceInfo = DeviceInfoPlugin();
-    if (UpgradeIO.isAndroid) {
-      _androidInfo = await deviceInfo.androidInfo;
-      osVersionString = _androidInfo.version.baseOS;
-    } else if (UpgradeIO.isIOS) {
-      _iosInfo = await deviceInfo.iosInfo;
-      osVersionString = _iosInfo.systemVersion;
-    } else if (UpgradeIO.isWeb) {
-      osVersionString = '0.0.0';
-    }
-
-    // If the OS version string is not valid, don't use it.
-    try {
-      Version.parse(osVersionString!);
-    } catch (e) {
-      osVersionString = null;
-    }
-
-    return true;
   }
 }
 
@@ -241,13 +263,13 @@ class AppcastItem {
       ? false
       : tags!.contains(AppcastConstants.ElementCriticalUpdate);
 
-  bool hostSupportsItem({String? osVersion, String? currentPlatform}) {
-    var supported = true;
+  /// Does the host support this item? If so is [osVersion] supported?
+  bool hostSupportsItem({String? osVersion, required String currentPlatform}) {
+    assert(currentPlatform.isNotEmpty);
+    bool supported = true;
     if (osString != null && osString!.isNotEmpty) {
-      final platformEnum = 'TargetPlatform.' + osString!;
-      currentPlatform = currentPlatform == null
-          ? defaultTargetPlatform.toString()
-          : 'TargetPlatform.' + currentPlatform;
+      final platformEnum = 'TargetPlatform.${osString!}';
+      currentPlatform = 'TargetPlatform.$currentPlatform';
       supported = platformEnum.toLowerCase() == currentPlatform.toLowerCase();
     }
 
@@ -256,19 +278,27 @@ class AppcastItem {
       try {
         osVersionValue = Version.parse(osVersion);
       } catch (e) {
-        print('appcast.hostSupportsItem: invalid osVerion: $e');
+        print('upgrader: hostSupportsItem invalid osVersion: $e');
         return false;
       }
       if (maximumSystemVersion != null) {
-        final maxVersion = Version.parse(maximumSystemVersion!);
-        if (osVersionValue > maxVersion) {
-          supported = false;
+        try {
+          final maxVersion = Version.parse(maximumSystemVersion!);
+          if (osVersionValue > maxVersion) {
+            supported = false;
+          }
+        } on Exception catch (e) {
+          print('upgrader: hostSupportsItem invalid maximumSystemVersion: $e');
         }
       }
       if (supported && minimumSystemVersion != null) {
-        final minVersion = Version.parse(minimumSystemVersion!);
-        if (osVersionValue < minVersion) {
-          supported = false;
+        try {
+          final minVersion = Version.parse(minimumSystemVersion!);
+          if (osVersionValue < minVersion) {
+            supported = false;
+          }
+        } on Exception catch (e) {
+          print('upgrader: hostSupportsItem invalid minimumSystemVersion: $e');
         }
       }
     }
