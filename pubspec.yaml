@@ -3,17 +3,15 @@ description: Flutter package for prompting users to upgrade when there is a newe
 version: 8.1.0
 homepage: https://github.com/larryaasen/upgrader
 
-
 environment:
   sdk: ">=3.0.0"
-
 
 dependencies:
   flutter:
     sdk: flutter
 
   # From fluttercommunity.dev: Get current device information from within the Flutter application.
-  device_info_plus: ^9.0.2
+  device_info_plus: ^9.1.0
 
   # From Dart Team: A composable, Future-based library for making HTTP requests.
   http: ^1.1.0
