@@ -11,7 +11,7 @@
 
 A Flutter package for prompting users to upgrade when there is a newer version of the app in the store.
 
-## Overview 
+## Overview
 
 When a newer app version is available in the app store, a simple alert prompt or card is
 displayed.
@@ -22,7 +22,6 @@ an app needs to be updated more quickly than usual, and nagging a user to upgrad
 the upgrade sooner. Also, with Flutter supporting more than just Android and iOS platforms, it
 will become more likely that users on other app stores need to be nagged about upgrading.
 
-<<<<<<< HEAD
 ### UI
 
 The UI comes in two flavors: alert or card. The [UpgradeAlert](#alert-example) class is used to display the
@@ -68,22 +67,6 @@ Console under the main store listing.
 
 Add this text to the bottom of the description field in App Store Connect in the
 description field.
-=======
-### Platform Support
-
-| Platform | Automatically Supported? | Appcast Supported? |
-| --- | --- | --- |
-| ANDROID | &#9989; Yes | &#9989; Yes |
-| IOS | &#9989; Yes | &#9989; Yes |
-| LINUX | &#10060; No | &#9989; Yes |
-| MACOS | &#10060; No | &#9989; Yes |
-| WEB | &#10060; No | &#9989; Yes |
-| WINDOWS | &#10060; No | &#9989; Yes |
-
-## Widgets
-The widgets come in two flavors: alert or card. The [UpgradeAlert](#alert-example) widget is used to display the
-popup alert prompt, and the [UpgradeCard](#card-example) widget is used to display the inline material design card.
->>>>>>> d041c34c4f2269e98dc46a75b816bc5555522301
 
 ## Alert Example
 
@@ -142,9 +125,11 @@ return Container(
 ![image](screenshots/example2.png)
 
 ## Localization
+
 The text displayed in the `upgrader` package is localized in [many languages](#language-localization), and supports customization.
 
 ## Release Notes
+
 The release notes are displayed by default when a new version is available. On Android
 the release notes are taken from the the WHAT'S NEW section on Google Play when
 available, otherwise the main app description is used.
@@ -155,7 +140,6 @@ For [appcast](#appcast)), the release notes are taken from the description field
 
 The Upgrader class can be customized by setting parameters in the constructor.
 
-<<<<<<< HEAD
 - appcast: Provide an Appcast that can be replaced for mock testing, defaults to `null`
 - appcastConfig: the appcast configuration, defaults to `null`
 - canDismissDialog: can alert dialog be dismissed on tap outside of the alert dialog, which defaults to `false` (not used by UpgradeCard)
@@ -178,44 +162,20 @@ The Upgrader class can be customized by setting parameters in the constructor.
 - showReleaseNotes: hide or show release notes, which defaults to `true`
 - willDisplayUpgrade: called when `upgrader` determines that an upgrade may
   or may not be displayed, defaults to `null`
-=======
-* appcast: Provide an Appcast that can be replaced for mock testing, defaults to ```null```
-* appcastConfig: the appcast configuration, defaults to ```null```
-* canDismissDialog: can alert dialog be dismissed on tap outside of the alert dialog, which defaults to ```false``` (not used by UpgradeCard)
-* countryCode: the country code that will override the system locale, which defaults to ```null```
-* cupertinoButtonTextStyle: the text style for the cupertino dialog buttons, which defaults to ```null```
-* languageCode: the language code that will override the system locale, which defaults to ```null```
-* client: an HTTP Client that can be replaced for mock testing, defaults to ```null```
-* debugDisplayAlways: always force the upgrade to be available, defaults to ```false```
-* debugDisplayOnce: display the upgrade at least once, defaults to ```false```
-* debugLogging: display logging statements, which defaults to ```false```
-* dialogStyle: the upgrade dialog style, either ```material``` or ```cupertino```, defaults to ```material```, used only by UpgradeAlert, works on Android and iOS.
-* durationUntilAlertAgain: duration until alerting user again, which defaults to ```3 days```
-* messages: optional localized messages used for display in `upgrader`
-* minAppVersion: the minimum app version supported by this app. Earlier versions of this app will be forced to update to the current version. It should be a valid version string like this: ```2.0.13```. Defaults to ```null```.
-* onIgnore: called when the ignore button is tapped, defaults to ```null```
-* onLater: called when the later button is tapped, defaults to ```null```
-* onUpdate: called when the update button is tapped, defaults to ```null```
-* platform: The [TargetPlatform] that identifies the platform on which the package is currently executing. Defaults to [defaultTargetPlatform]. Note that [TargetPlatform] does not include web, but includes mobile and desktop. This parameter is normally used to change the target platform during testing.
-* shouldPopScope: called when the back button is tapped, defaults to ```null```
-* showIgnore: hide or show Ignore button, which defaults to ```true```
-* showLater: hide or show Later button, which defaults to ```true```
-* showReleaseNotes: hide or show release notes, which defaults to ```true```
-* upgraderOS: Provides information on which OS this code is running on, defaults to ```null```
-* willDisplayUpgrade: called when ```upgrader``` determines that an upgrade may
-or may not be displayed, defaults to ```null```
->>>>>>> d041c34c4f2269e98dc46a75b816bc5555522301
 
 ## Minimum App Version
+
 The `upgrader` package can enforce a minimum app version simply by adding a
 version number to the description field in the app stores.
 
 For the Android Play Store, use this format:
+
 ```
 [Minimum supported app version: 1.2.3]
 ```
 
 For the iOS App Store, use this format:
+
 ```
 [:mav: 1.2.3]
 ```
@@ -226,7 +186,6 @@ and Later buttons will automatically be hidden.
 
 ![image](screenshots/example-minappversion.png)
 
-
 After the app containing this text has been submitted for review, approved, and
 released on the app store, the version number will be visible to the `upgrader`
 package. When the minimum app version is updated in the future, all previously
@@ -235,17 +194,19 @@ installed apps with this package will recognize and honor that value.
 This overrides any value supplied in the `minAppVersion` parameter.
 
 ### Android
+
 Add this text to the bottom of the full description field in the Google Play
 Console under the main store listing.
 
 ### iOS
+
 Add this text to the bottom of the description field in App Store Connect in the
 description field.
 
 ## Go Router
 
 When using GoRouter (package go_router) with upgrader, you may need to provide
-a navigatorKey to the ```UpgradeAlert``` widget so that the correct route 
+a navigatorKey to the `UpgradeAlert` widget so that the correct route
 context is used. Below is part of the code you will need for this. Also,
 checkout the [example/lib/main-gorouter.dart](example/lib/main-gorouter.dart) example for a more complete example.
 
@@ -401,7 +362,6 @@ The strings displayed in `upgrader` are already localized in 34 languages. New l
 supported in the future with minor updates.
 
 Languages supported:
-<<<<<<< HEAD
 
 - English ('en')
 - Arabic ('ar')
@@ -432,42 +392,6 @@ Languages supported:
 - Turkish ('tr')
 - Ukrainian ('uk')
 - Vietnamese ('vi')
-=======
-* English ('en')
-* Arabic ('ar')
-* Bengali ('bn')
-* Chinese ('zh')
-* Danish ('da')
-* Dutch ('nl')
-* Filipino ('fil')
-* French ('fr')
-* German ('de')
-* Greek ('el')
-* Haitian Creole ('ht')
-* Hebrew ('he')
-* Hindi ('hi')
-* Hungarian ('hu')
-* Indonesian ('id')
-* Italian ('it')
-* Japanese ('ja')
-* Kazakh ('kk')
-* Khmer ('km')
-* Korean ('ko')
-* Lithuanian ('lt')
-* Mongolian ('mn')
-* Norwegian ('nb')
-* Persian ('fa')
-* Polish ('pl')
-* Portuguese ('pt')
-* Russian ('ru')
-* Spanish ('es')
-* Swedish ('sv')
-* Tamil ('ta')
-* Telugu ('te')
-* Turkish ('tr')
-* Ukrainian ('uk')
-* Vietnamese ('vi')
->>>>>>> d041c34c4f2269e98dc46a75b816bc5555522301
 
 The `upgrader` package can be supplied with additional languages in your code by extending the `UpgraderMessages` class
 to provide custom values.
@@ -586,15 +510,8 @@ itunes_lookup all results:
 ## Reporting Issues
 
 Please submit issue reports [here on GitHub](https://github.com/larryaasen/upgrader/issues/new/choose).
-<<<<<<< HEAD
 To better assist in analyzing issues, please include all of the `upgrader` log, which should look something like this:
 
-=======
-To better assist in analyzing issues, please include all of the `upgrader` log,
-which can be enabled by setting `debugLogging` to `true`.
-
-It should look something like this:
->>>>>>> d041c34c4f2269e98dc46a75b816bc5555522301
 ```
 flutter: upgrader: languageCode: en
 flutter: upgrader: build UpgradeAlert
