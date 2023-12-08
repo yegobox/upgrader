@@ -14,7 +14,7 @@ dependencies:
   device_info_plus: ^9.1.0
 
   # From Dart Team: A composable, Future-based library for making HTTP requests.
-  http: ^1.1.0
+  http: ^1.1.2
 
   # From dart.dev: Platform independent access to information about the current operating system.
   os_detect: ^2.0.0
@@ -37,7 +37,7 @@ dependencies:
   # Pure Dart library for HTML5 parsing
   html: ^0.15.0
 dependency_overrides:
-  http: ^1.1.0
+  http: ^1.1.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
