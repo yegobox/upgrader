@@ -1,3 +1,4 @@
 # melos_managed_dependency_overrides: http
 dependency_overrides:
   http: ^1.1.2
+  meta: ^1.11.0
